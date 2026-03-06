@@ -1,0 +1,90 @@
+# Build and deployment artifacts
+bin/
+obj/
+x64/
+x86/
+
+# Publish output
+publish/
+PublishScripts/
+*.publishproj
+*.[Pp]ublish.xml
+*.azurePubxml
+
+# NuGet
+*.nupkg
+*.snupkg
+**/packages/*
+!**/packages/build/
+*.nuget.props
+*.nuget.targets
+project.lock.json
+project.fragment.lock.json
+
+# Visual Studio
+.vs/
+.vscode/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+.idea/
+*.sln.iml
+
+# Build output
+[Dd]ebug/
+[Dd]ebugPublic/
+[Rr]elease/
+[Rr]eleases/
+[Bb]uild[Ll]og.*
+
+# Test results
+[Tt]est[Rr]esult*/
+*.trx
+*.coverage
+
+# Logs
+[Ll]og/
+*.log
+
+# User-specific settings
+*.userprefs
+*.jfm
+
+# Rider
+.idea/
+*.sln.iml
+
+# Local environment files
+.env
+*.Development.*
+secrets.env
+appsettings.Development.json
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*~
+~$*
+*.tmp
+*.bak
+*.swp
+
+# Optional npm cache directory
+node_modules/
+
+# Optional REPL history
+.replit
+
+# Mac files
+.DS_Store
+
+# FakesAssemblies
+FakesAssemblies/
+ht/config.js
+ht/img.back.png
+ht/img.mask.png
+ht/img.back.png
+ht/img.mask.png
