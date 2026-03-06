@@ -1,204 +1,190 @@
 using OpenCvSharp;
-using System;
-using System.Collections.Generic;
-using System.Linq;
 
-namespace Aco228.ContextualImage.Helpers;
+namespace Aco228.ContextualImage.Infrastructure;
 
 public static class SmartCropHelper
 {
     public static Rect FindBestCrop(Mat mat, string aspectRatio)
     {
-        var ratio = ParseAspectRatio(aspectRatio);
-        var cropSize = CalculateCropSize(mat, ratio);
-        
-        // Calculate maximum possible positions
-        int maxX = mat.Width - cropSize.Width;
-        int maxY = mat.Height - cropSize.Height;
-        
-        if (maxX < 0 || maxY < 0)
-        {
-            throw new ArgumentException("Crop size larger than image dimensions");
-        }
-        
-        // Convert to grayscale for processing
-        using var gray = new Mat();
-        Cv2.CvtColor(mat, gray, ColorConversionCodes.BGR2GRAY);
-        
-        // Apply Gaussian blur to reduce noise
-        using var blurred = new Mat();
-        Cv2.GaussianBlur(gray, blurred, new Size(5, 5), 0);
-        
-        // Detect edges using Canny
-        using var edges = new Mat();
-        Cv2.Canny(blurred, edges, 50, 150);
-        
-        // Try multiple crop positions and score them
-        var bestCrop = FindBestCropPosition(edges, cropSize, maxX, maxY);
-        
-        return bestCrop;
-    }
-    
-    private static double ParseAspectRatio(string aspectRatio)
-    {
+        // Parse aspect ratio, e.g. "9:16", "16:9", "1:1"
         var parts = aspectRatio.Split(':');
-        if (parts.Length != 2 || 
-            !double.TryParse(parts[0], out double width) || 
-            !double.TryParse(parts[1], out double height) ||
-            width <= 0 || height <= 0)
+        if (parts.Length != 2 || !double.TryParse(parts[0], out double arW) ||
+            !double.TryParse(parts[1], out double arH))
+            throw new ArgumentException($"Invalid aspect ratio format: '{aspectRatio}'. Expected format like '16:9'.");
+
+        int srcW = mat.Width;
+        int srcH = mat.Height;
+
+        // Compute crop dimensions that fit within the source, preserving aspect ratio
+        int cropW, cropH;
+        if (srcW / arW < srcH / arH)
         {
-            throw new ArgumentException($"Invalid aspect ratio format: {aspectRatio}. Expected format: 'width:height' (e.g., '16:9', '1:1')");
-        }
-        
-        return width / height;
-    }
-    
-    private static Size CalculateCropSize(Mat mat, double ratio)
-    {
-        double imageRatio = (double)mat.Width / mat.Height;
-        
-        int cropWidth, cropHeight;
-        
-        if (imageRatio > ratio)
-        {
-            // Image is wider than target ratio, crop width
-            cropHeight = mat.Height;
-            cropWidth = (int)(cropHeight * ratio);
+            cropW = srcW;
+            cropH = (int) Math.Round(srcW * arH / arW);
         }
         else
         {
-            // Image is taller than target ratio, crop height
-            cropWidth = mat.Width;
-            cropHeight = (int)(cropWidth / ratio);
+            cropH = srcH;
+            cropW = (int) Math.Round(srcH * arW / arH);
         }
-        
-        return new Size(cropWidth, cropHeight);
-    }
-    
-    private static Rect FindBestCropPosition(Mat edges, Size cropSize, int maxX, int maxY)
-    {
-        // Define grid of positions to test (optimize for performance)
-        int stepX = Math.Max(1, maxX / 10);
-        int stepY = Math.Max(1, maxY / 10);
-        
-        Rect bestCrop = new Rect(0, 0, cropSize.Width, cropSize.Height);
-        double bestScore = double.MinValue;
-        
-        // Try positions with emphasis on rule of thirds
-        var candidatePositions = GetCandidatePositions(maxX, maxY, cropSize, stepX, stepY);
-        
-        foreach (var pos in candidatePositions)
+
+        cropW = Math.Min(cropW, srcW);
+        cropH = Math.Min(cropH, srcH);
+
+        // Build saliency map (Spectral Residual)
+        using var saliencyMap = ComputeSaliencyMap(mat);
+
+        // Build face weight map
+        using var faceMap = ComputeFaceWeightMap(mat);
+
+        // Combine: saliency + face boost
+        using var combinedMap = new Mat();
+        Cv2.AddWeighted(saliencyMap, 0.5, faceMap, 0.5, 0, combinedMap);
+
+        // Sliding window: find the crop position with highest total weight
+        // Use integral image for O(1) window sum queries
+        using var integral = new Mat();
+        Cv2.Integral(combinedMap, integral, MatType.CV_64F);
+
+        double bestScore = -1;
+        int bestX = 0, bestY = 0;
+
+        // Step size for performance (1px is fine for small images, increase for large)
+        int step = Math.Max(1, Math.Min(srcW, srcH) / 200);
+
+        for (int y = 0; y <= srcH - cropH; y += step)
         {
-            var crop = new Rect(pos.X, pos.Y, cropSize.Width, cropSize.Height);
-            double score = ScoreCrop(edges, crop);
-            
-            if (score > bestScore)
+            for (int x = 0; x <= srcW - cropW; x += step)
             {
-                bestScore = score;
-                bestCrop = crop;
-            }
-        }
-        
-        return bestCrop;
-    }
-    
-    private static List<Point> GetCandidatePositions(int maxX, int maxY, Size cropSize, int stepX, int stepY)
-    {
-        var positions = new List<Point>();
-        
-        // Add rule of thirds positions
-        int thirdX1 = (maxX * 1) / 3;
-        int thirdX2 = (maxX * 2) / 3;
-        int thirdY1 = (maxY * 1) / 3;
-        int thirdY2 = (maxY * 2) / 3;
-        
-        // Rule of thirds intersection points
-        positions.Add(new Point(thirdX1, thirdY1));
-        positions.Add(new Point(thirdX1, thirdY2));
-        positions.Add(new Point(thirdX2, thirdY1));
-        positions.Add(new Point(thirdX2, thirdY2));
-        
-        // Center position
-        positions.Add(new Point(maxX / 2, maxY / 2));
-        
-        // Edge positions
-        positions.Add(new Point(0, 0));
-        positions.Add(new Point(maxX, 0));
-        positions.Add(new Point(0, maxY));
-        positions.Add(new Point(maxX, maxY));
-        
-        // Grid sampling
-        for (int x = 0; x <= maxX; x += stepX)
-        {
-            for (int y = 0; y <= maxY; y += stepY)
-            {
-                // Skip positions too close to already added ones
-                bool tooClose = positions.Any(p => 
-                    Math.Abs(p.X - x) < stepX / 2 && Math.Abs(p.Y - y) < stepY / 2);
-                
-                if (!tooClose)
+                double score = IntegralSum(integral, x, y, cropW, cropH);
+                if (score > bestScore)
                 {
-                    positions.Add(new Point(x, y));
+                    bestScore = score;
+                    bestX = x;
+                    bestY = y;
                 }
             }
         }
-        
-        return positions;
+
+        return new Rect(bestX, bestY, cropW, cropH);
     }
-    
-    private static double ScoreCrop(Mat edges, Rect crop)
+
+    private static Mat ComputeSaliencyMap(Mat src)
     {
-        // Extract the crop region from edges
-        using var cropRegion = new Mat(edges, crop);
-        
-        // Calculate edge density (amount of detail/activity in the region)
-        double edgeDensity = Cv2.Mean(cropRegion).Val0 / 255.0;
-        
-        // Calculate center weight (prefer content near center)
-        double centerWeight = CalculateCenterWeight(crop, edges.Width, edges.Height);
-        
-        // Penalize crops too close to edges (unless content is there)
-        double edgePenalty = CalculateEdgePenalty(crop, edges.Width, edges.Height);
-        
-        // Combined score: prefer regions with moderate-high edge density, centered, not at extreme edges
-        double score = edgeDensity * 0.5 + centerWeight * 0.3 - edgePenalty * 0.2;
-        
-        return score;
+        using var gray = new Mat();
+        if (src.Channels() == 1)
+            src.CopyTo(gray);
+        else
+            Cv2.CvtColor(src, gray, ColorConversionCodes.BGR2GRAY);
+
+        int m = Cv2.GetOptimalDFTSize(gray.Rows);
+        int n = Cv2.GetOptimalDFTSize(gray.Cols);
+
+        using var padded = new Mat();
+        Cv2.CopyMakeBorder(gray, padded, 0, m - gray.Rows, 0, n - gray.Cols, BorderTypes.Reflect);
+
+        using var floatGray = new Mat();
+        padded.ConvertTo(floatGray, MatType.CV_32F, 1.0 / 255.0);
+
+        using var dft = new Mat();
+        Cv2.Dft(floatGray, dft, DftFlags.ComplexOutput);
+
+        Mat[] planes = Cv2.Split(dft);
+        using var magnitude = new Mat();
+        using var phase = new Mat();
+        Cv2.CartToPolar(planes[0], planes[1], magnitude, phase);
+
+        using var magnitudeShifted = new Mat();
+        Cv2.Add(magnitude, new Scalar(1e-10), magnitudeShifted);
+
+        using var logMag = new Mat();
+        Cv2.Log(magnitudeShifted, logMag);
+
+        using var smoothed = new Mat();
+        Cv2.Blur(logMag, smoothed, new Size(3, 3));
+
+        using var residual = new Mat();
+        Cv2.Subtract(logMag, smoothed, residual);
+
+        using var expResidual = new Mat();
+        Cv2.Exp(residual, expResidual);
+
+        Cv2.PolarToCart(expResidual, phase, planes[0], planes[1]);
+
+        using var merged = new Mat();
+        Cv2.Merge(planes, merged);
+
+        using var reconstructed = new Mat();
+        Cv2.Idft(merged, reconstructed, DftFlags.Scale | DftFlags.RealOutput);
+
+        using var cropped = reconstructed[new Rect(0, 0, src.Width, src.Height)];
+
+        using var squared = new Mat();
+        Cv2.Multiply(cropped, cropped, squared);
+
+        int ksize = Math.Max(3, (src.Width / 40) | 1);
+        using var blurred = new Mat();
+        Cv2.GaussianBlur(squared, blurred, new Size(ksize, ksize), 0);
+
+        var result = new Mat();
+        Cv2.Normalize(blurred, result, 0, 1, NormTypes.MinMax, MatType.CV_32F);
+
+        foreach (var p in planes) p.Dispose();
+        return result;
     }
-    
-    private static double CalculateCenterWeight(Rect crop, int imageWidth, int imageHeight)
+
+    private static Mat ComputeFaceWeightMap(Mat src)
     {
-        // Calculate distance from center
-        double cropCenterX = crop.X + crop.Width / 2.0;
-        double cropCenterY = crop.Y + crop.Height / 2.0;
-        double imageCenterX = imageWidth / 2.0;
-        double imageCenterY = imageHeight / 2.0;
-        
-        double distance = Math.Sqrt(
-            Math.Pow(cropCenterX - imageCenterX, 2) + 
-            Math.Pow(cropCenterY - imageCenterY, 2)
-        );
-        
-        double maxDistance = Math.Sqrt(
-            Math.Pow(imageWidth / 2.0, 2) + 
-            Math.Pow(imageHeight / 2.0, 2)
-        );
-        
-        // Return weight: 1.0 at center, decreasing towards edges
-        return 1.0 - (distance / maxDistance);
+        var result = new Mat(src.Rows, src.Cols, MatType.CV_32F, Scalar.All(0));
+
+        // Try to load face cascade — returns empty map if not available
+        string cascadePath = Path.Combine(
+            AppContext.BaseDirectory,
+            "haarcascade_frontalface_default.xml");
+
+        if (!File.Exists(cascadePath))
+            return result;
+
+        using var cascade = new CascadeClassifier(cascadePath);
+        using var gray = new Mat();
+        Cv2.CvtColor(src, gray, ColorConversionCodes.BGR2GRAY);
+        Cv2.EqualizeHist(gray, gray);
+
+        var faces = cascade.DetectMultiScale(gray, 1.1, 4, HaarDetectionTypes.ScaleImage,
+            new Size(src.Width / 10, src.Height / 10));
+
+        foreach (var face in faces)
+        {
+            // Expand face rect slightly
+            int pad = (int) (face.Width * 0.3);
+            var expanded = new Rect(
+                Math.Max(0, face.X - pad),
+                Math.Max(0, face.Y - pad),
+                Math.Min(src.Width - face.X + pad, face.Width + pad * 2),
+                Math.Min(src.Height - face.Y + pad, face.Height + pad * 2));
+
+            // Draw a Gaussian blob over the face area
+            using var mask = new Mat(src.Rows, src.Cols, MatType.CV_32F, Scalar.All(0));
+            mask[expanded].SetTo(Scalar.All(1.0));
+
+            int blobK = Math.Max(3, (expanded.Width / 2) | 1);
+            Cv2.GaussianBlur(mask, mask, new Size(blobK, blobK), expanded.Width / 4.0);
+            Cv2.Add(result, mask, result);
+        }
+
+        if (faces.Length > 0)
+            Cv2.Normalize(result, result, 0, 1, NormTypes.MinMax, MatType.CV_32F);
+
+        return result;
     }
-    
-    private static double CalculateEdgePenalty(Rect crop, int imageWidth, int imageHeight)
+
+    private static double IntegralSum(Mat integral, int x, int y, int w, int h)
     {
-        // Penalize being too close to image edges
-        double penalty = 0;
-        
-        // Check distance from each edge
-        penalty += crop.X < 50 ? (50 - crop.X) / 50.0 : 0; // Left edge
-        penalty += crop.Y < 50 ? (50 - crop.Y) / 50.0 : 0; // Top edge
-        penalty += (imageWidth - (crop.X + crop.Width)) < 50 ? (50 - (imageWidth - (crop.X + crop.Width))) / 50.0 : 0; // Right edge
-        penalty += (imageHeight - (crop.Y + crop.Height)) < 50 ? (50 - (imageHeight - (crop.Y + crop.Height))) / 50.0 : 0; // Bottom edge
-        
-        return Math.Min(1.0, penalty);
+        // Integral image is (srcH+1) x (srcW+1)
+        double br = integral.At<double>(y + h, x + w);
+        double bl = integral.At<double>(y + h, x);
+        double tr = integral.At<double>(y, x + w);
+        double tl = integral.At<double>(y, x);
+        return br - bl - tr + tl;
     }
 }
