@@ -4,9 +4,9 @@ using SkiaSharp;
 namespace Aco228.ContextualImage.Infrastructure;
 
 public static class SkiaTextHelper
-    
 {
-    public static void DrawTextGradient(SKCanvas canvas, SKRect textBounds, float dimAmount, bool isBottomText, int imageHeight)
+    public static void DrawTextGradient(SKCanvas canvas, SKRect textBounds, float dimAmount, bool isBottomText,
+        int imageHeight)
     {
         if (dimAmount <= 0f) return;
 
@@ -94,7 +94,7 @@ public static class SkiaTextHelper
             canvas.DrawPath(path, bgPaint);
         }
 
-        // Pass 2: all shadows first
+        // Pass 2: all shadows
         if (element.ShadowRadius.HasValue && element.ShadowColor.HasValue)
         {
             foreach (var (line, x, y) in linePositions)
@@ -102,15 +102,17 @@ public static class SkiaTextHelper
                     element.ShadowRadius.Value, element.ShadowColor.Value);
         }
 
-// Pass 3: outline + fill on top
-        foreach (var (line, x, y) in linePositions)
+        // Pass 3: all outlines
+        if (element.OutlineWidth.HasValue && element.OutlineColor.HasValue)
         {
-            if (element.OutlineWidth.HasValue && element.OutlineColor.HasValue)
+            foreach (var (line, x, y) in linePositions)
                 DrawOutline(canvas, line, font, x, y, options.HorizontalAlign,
                     element.OutlineWidth.Value, element.OutlineColor.Value);
-
-            DrawFill(canvas, line, font, x, y, options.HorizontalAlign, element.Color);
         }
+
+        // Pass 4: all fills
+        foreach (var (line, x, y) in linePositions)
+            DrawFill(canvas, line, font, x, y, options.HorizontalAlign, element.Color);
     }
 
     private static void DrawFill(SKCanvas canvas, string line, SKFont font,
@@ -123,17 +125,36 @@ public static class SkiaTextHelper
     private static void DrawOutline(SKCanvas canvas, string line, SKFont font,
         float x, float y, SKTextAlign align, float outlineWidth, SKColor outlineColor)
     {
-        using var paint = new SKPaint
+        // Hard-code your desired inner color here (change this!)
+        // Use the color your text normally has without outline.
+        // White or black are common for overlaid text; adjust as needed.
+        SKColor innerColor = SKColors.White;   // ← EDIT THIS to your actual fill color
+
+        // Stroke paint – switch to Round join (this kills most spikes)
+        using var strokePaint = new SKPaint
         {
             Color       = outlineColor,
             IsAntialias = true,
             Style       = SKPaintStyle.Stroke,
             StrokeWidth = outlineWidth * font.Size,
-            StrokeJoin  = SKStrokeJoin.Round,
+            StrokeJoin  = SKStrokeJoin.Round,     // ← This is the key change (Round vs Miter)
+            StrokeCap   = SKStrokeCap.Round,      // Helps smooth tiny protrusions
+            StrokeMiter = 1f,                     // Lower limit even if using Round (safety)
         };
-        canvas.DrawText(line, x, y, align, font, paint);
+
+        // Fill paint to cover internal artifacts
+        using var fillPaint = new SKPaint
+        {
+            Color       = innerColor,
+            IsAntialias = true,
+            Style       = SKPaintStyle.Fill,
+        };
+
+        // Draw order: thick outline first, then sharp fill on top
+        canvas.DrawText(line, x, y, align, font, strokePaint);
+        canvas.DrawText(line, x, y, align, font, fillPaint);
     }
-    
+
     private static void DrawShadow(SKCanvas canvas, string line, SKFont font,
         float x, float y, SKTextAlign align, float shadowRadius, SKColor shadowColor)
     {
@@ -141,9 +162,9 @@ public static class SkiaTextHelper
 
         using var blurPaint = new SKPaint
         {
-            Color      = shadowColor,
+            Color       = shadowColor,
             IsAntialias = true,
-            Style      = SKPaintStyle.Stroke,
+            Style       = SKPaintStyle.Stroke,
             StrokeWidth = shadowRadius * font.Size * 0.5f,
             StrokeJoin  = SKStrokeJoin.Round,
             MaskFilter  = SKMaskFilter.CreateBlur(SKBlurStyle.Normal, sigma),
@@ -151,7 +172,7 @@ public static class SkiaTextHelper
 
         canvas.DrawText(line, x, y, align, font, blurPaint);
     }
-    
+
     private static float FitFontSize(TextElement element, TextRenderOptions options)
     {
         float lo = element.MinimumFontSize;

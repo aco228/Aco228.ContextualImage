@@ -4,8 +4,8 @@ namespace Aco228.ContextualImage.Models;
 
 public class TextElement
 {
-    public required string Text { get; set; }
-    public required SKTypeface Font { get; set; }
+    public string Text { get; set; }
+    public SKTypeface Font { get; set; }
     public float MinimumFontSize { get; set; }
     public float? OutlineWidth { get; set; }
     public SKColor? OutlineColor { get; set; }

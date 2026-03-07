@@ -9,6 +9,7 @@ using Aco228.ContextualImage.Consoler;
 using Aco228.Common.Extensions;
 using Aco228.Common.LocalStorage;
 using Aco228.ContextualImage.Infrastructure;
+using Aco228.ContextualImage.Services;
 
 Console.OutputEncoding = Encoding.UTF8;
 Console.InputEncoding = Encoding.UTF8;
@@ -43,10 +44,11 @@ for (;;)
         continue;
     
     var txt = txts.Take();
-    await Tests.TestSmartCrop2(
+    await FlowPrimaryTextBlurService.Run(
         path: image.FullName,
         primaryText: txt.PrimaryText,
-        secondaryText: txt.SecondaryText);
+        secondaryText: txt.SecondaryText,
+        aspectRatio: "4:5");
 }
 
 
