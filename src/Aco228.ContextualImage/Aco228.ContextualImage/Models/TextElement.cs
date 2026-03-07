@@ -37,5 +37,5 @@ public class TextRenderOptions
     public SKFontStyleWeight FontWeight { get; set; } = SKFontStyleWeight.Normal;
 
     /// <summary>Line height multiplier relative to font size.</summary>
-    public float LineHeightMultiplier { get; set; } = 1.2f;
+    public float LineHeightMultiplier { get; set; } = 1f;
 }

@@ -18,4 +18,13 @@
       <PackageReference Include="SkiaSharp" Version="3.119.3-preview.1.1" />
     </ItemGroup>
 
+    <ItemGroup>
+      <None Update="yolov8n.onnx">
+        <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      </None>
+      <None Update="yolov8s.onnx">
+        <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      </None>
+    </ItemGroup>
+
 </Project>

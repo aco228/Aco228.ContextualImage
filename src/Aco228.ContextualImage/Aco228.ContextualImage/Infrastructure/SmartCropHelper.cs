@@ -68,8 +68,47 @@ public static class SmartCropHelper
 
         return new Rect(bestX, bestY, cropW, cropH);
     }
+    
+    public static Rect FindFocalPoint(Mat mat)
+    {
+        using var saliency = ComputeSaliencyMap(mat);
+        using var blurred = new Mat();
+        Cv2.GaussianBlur(saliency, blurred, new Size(51, 51), 0);
 
-    private static Mat ComputeSaliencyMap(Mat src)
+        // Find peak location
+        Cv2.MinMaxLoc(blurred, out double minVal, out double maxVal, out _, out Point maxLoc);
+
+        // Threshold at 60% of max — everything above this is "focal region"
+        using var thresholded = new Mat();
+        Cv2.Threshold(blurred, thresholded, maxVal * 0.6, 1.0, ThresholdTypes.Binary);
+
+        thresholded.ConvertTo(thresholded, MatType.CV_8U, 255);
+
+        // Find contours of the salient region
+        Cv2.FindContours(thresholded, out Point[][] contours, out _, 
+            RetrievalModes.External, ContourApproximationModes.ApproxSimple);
+
+        if (contours.Length == 0)
+        {
+            // Fallback: small rect around peak
+            int fw = mat.Width / 4;
+            int fh = mat.Height / 4;
+            return new Rect(
+                Math.Clamp(maxLoc.X - fw / 2, 0, mat.Width - fw),
+                Math.Clamp(maxLoc.Y - fh / 2, 0, mat.Height - fh),
+                fw, fh);
+        }
+
+        // Find the contour that contains the peak point
+        var peakContour = contours
+                              .OrderByDescending(c => Cv2.ContourArea(c))
+                              .FirstOrDefault(c => Cv2.PointPolygonTest(c, new Point2f(maxLoc.X, maxLoc.Y), false) >= 0)
+                          ?? contours.OrderByDescending(c => Cv2.ContourArea(c)).First();
+
+        return Cv2.BoundingRect(peakContour);
+    }
+
+    public static Mat ComputeSaliencyMap(Mat src)
     {
         using var gray = new Mat();
         if (src.Channels() == 1)

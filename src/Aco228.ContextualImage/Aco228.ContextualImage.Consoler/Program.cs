@@ -27,18 +27,23 @@ var provider = ServiceProviderHelper.CreateProvider(typeof(Program), (builder) =
 var textsRaw = await File.ReadAllTextAsync(@"C:\Users\Lenovo\Desktop\arb.db\contextual-image\texts.json");
 var txts = JsonSerializer.Deserialize<List<FbTxt>>(textsRaw).Shuffle().ToManagedList();
 
-var folders = new ManagedList<string>()
-{
-    "C:\\Users\\Lenovo\\Documents\\ArbitrageSoulsStorage\\Assets.aco228\\UsedCars\\Buckets\\superset",
-    "C:\\Users\\Lenovo\\Documents\\ArbitrageSoulsStorage\\Assets.aco228\\UsedAudiSUV\\Buckets\\superset"
-};
+var baseFolder = new DirectoryInfo(@"C:\Users\Lenovo\Documents\ArbitrageSoulsStorage\Assets.aco228");
+var folders = baseFolder.GetDirectories().ToManagedList();
+
+folders.ShuffleAgain();
 
 for (;;)
 {
     var folder = folders.Take();
-    var image = new DirectoryInfo(folder).GetFiles("*.jpg").Shuffle().FirstOrDefault();
+    var folderInfo = new StorageFolder(folder!);
+    var buckets = folderInfo.GetFolder("Buckets");
+    var superset = buckets.GetFolder("superset");
+    var image = superset.GetDirectoryInfo().GetFiles("*.jpg").Shuffle().FirstOrDefault();
+    if (image == null)
+        continue;
+    
     var txt = txts.Take();
-    await Tests.TestSmartCrop(
+    await Tests.TestSmartCrop2(
         path: image.FullName,
         primaryText: txt.PrimaryText,
         secondaryText: txt.SecondaryText);
