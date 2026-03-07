@@ -73,13 +73,13 @@ public static class FlowPrimaryTextBlurService
             new TextPlacementRequest
             {
                 Element = primaryElement,
-                MinFontSize = crop.Width * 0.063f,
-                MaxFontSize = crop.Width * 0.085f,
+                MinFontSize = crop.Width * 0.093f,
+                MaxFontSize = crop.Width * 0.115f,
             },
         }, focalPoint);
 
         // Blurred background surface
-        using var blurredSurface = CreateBlurredSurface(bitmap, sigma: 12f);  // 8-20 range safe
+        using var blurredSurface = CreateBlurredSurface(bitmap, sigma: 160f);  // 8-20 range safe
         using var canvas = blurredSurface.Canvas;
 
         DrawOverlay(bgForText, canvas, bitmap);

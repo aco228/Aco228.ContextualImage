@@ -125,33 +125,33 @@ public static class SkiaTextHelper
     private static void DrawOutline(SKCanvas canvas, string line, SKFont font,
         float x, float y, SKTextAlign align, float outlineWidth, SKColor outlineColor)
     {
-        // Hard-code your desired inner color here (change this!)
-        // Use the color your text normally has without outline.
-        // White or black are common for overlaid text; adjust as needed.
-        SKColor innerColor = SKColors.White;   // ← EDIT THIS to your actual fill color
+        // CHANGE THIS to your ACTUAL inner text color (critical!)
+        // Usually SKColors.White or SKColors.Black depending on background
+        // If you don't know → use SKColors.White for light text on dark images
+        SKColor fillColor = SKColors.White;  // ← EDIT THIS LINE!
 
-        // Stroke paint – switch to Round join (this kills most spikes)
         using var strokePaint = new SKPaint
         {
             Color       = outlineColor,
             IsAntialias = true,
             Style       = SKPaintStyle.Stroke,
             StrokeWidth = outlineWidth * font.Size,
-            StrokeJoin  = SKStrokeJoin.Round,     // ← This is the key change (Round vs Miter)
-            StrokeCap   = SKStrokeCap.Round,      // Helps smooth tiny protrusions
-            StrokeMiter = 1f,                     // Lower limit even if using Round (safety)
+            StrokeJoin  = SKStrokeJoin.Round,     // Kills sharp miter spikes
+            StrokeCap   = SKStrokeCap.Round,      // Smooths ends
+            StrokeMiter = 1f,                     // Low limit (safety net)
         };
 
-        // Fill paint to cover internal artifacts
         using var fillPaint = new SKPaint
         {
-            Color       = innerColor,
+            Color       = fillColor,
             IsAntialias = true,
             Style       = SKPaintStyle.Fill,
         };
 
-        // Draw order: thick outline first, then sharp fill on top
+        // 1. Thick outline (stroke) first
         canvas.DrawText(line, x, y, align, font, strokePaint);
+
+        // 2. Sharp fill on top → covers internal double-stroking / overlaps
         canvas.DrawText(line, x, y, align, font, fillPaint);
     }
 
