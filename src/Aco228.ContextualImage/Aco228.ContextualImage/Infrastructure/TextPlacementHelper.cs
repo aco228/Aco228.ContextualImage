@@ -21,7 +21,7 @@ public class TextPlacement
 public static class TextPlacementHelper
 {
     public static List<TextPlacement> FindPlacements(Mat croppedMat, List<TextPlacementRequest> requests,
-        Rect focalPoint)
+        Rect focalPoint, float placementGapFraction = 0.015f)
     {
         int w = croppedMat.Width;
         int h = croppedMat.Height;
@@ -29,7 +29,7 @@ public static class TextPlacementHelper
         int marginX = (int)(w * 0.05f);
         int marginY = (int)(h * 0.05f);
         int slotW   = w - marginX * 2;
-        int gap     = (int)(h * 0.03f); // minimum gap between placements
+        int gap     = (int)(h * placementGapFraction); // minimum gap between placements
 
         var sortedRequests = requests.OrderByDescending(r => r.MaxFontSize).ToList();
 

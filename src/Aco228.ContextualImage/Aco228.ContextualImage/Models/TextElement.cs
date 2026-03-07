@@ -38,4 +38,7 @@ public class TextRenderOptions
 
     /// <summary>Line height multiplier relative to font size.</summary>
     public float LineHeightMultiplier { get; set; } = 1f;
+
+    /// <summary>Minimum gap between text placements as a fraction of image height. Default 0.03 (3%).</summary>
+    public float PlacementGapFraction { get; set; } = 0.03f;
 }

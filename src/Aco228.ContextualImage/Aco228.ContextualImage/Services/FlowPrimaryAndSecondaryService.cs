@@ -9,6 +9,19 @@ namespace Aco228.ContextualImage.Services;
 
 public static class FlowPrimaryAndSecondaryService
 {
+    private static ManagedList<ManagedList<SKColor>?> Colors = new()
+    {
+        null,
+        new ManagedList<SKColor> { SKColors.Red, SKColors.Green, SKColors.Blue },
+    };
+    
+    private static ManagedList<SKTextAlign> Aligns = new()
+    {
+        SKTextAlign.Center,
+        SKTextAlign.Left,
+        SKTextAlign.Right,
+    };
+    
     private static ManagedList<Func<TextElement>> PrimaryTextVariations = new()
     {
         () => new TextElement
@@ -70,8 +83,13 @@ public static class FlowPrimaryAndSecondaryService
 
         using var bitmap = SkHelper.MatToSkBitmap(cropped);
 
-        var accentColor = GetAccessColor(bitmap, out var bgForText, out var shadowColor);
+        var trueAccentColor = GetAccessColor(bitmap);
+        var accentColorTemplate = Colors.Take()?.Take().ShiftHue(FloatHelper.Random(-20, 20));
+        if (accentColorTemplate == null)
+            accentColorTemplate = trueAccentColor;
 
+        var accentColor = accentColorTemplate.Value;
+        
         var primaryElement = PrimaryTextVariations.Take()!();
         primaryElement.Text = primaryText;
         primaryElement.Font = font;
@@ -91,13 +109,13 @@ public static class FlowPrimaryAndSecondaryService
             new TextPlacementRequest
             {
                 Element = secondaryElement,
-                MinFontSize = crop.Width * 0.042f,
-                MaxFontSize = crop.Width * 0.043f,
+                MinFontSize = crop.Width * 0.045f,
+                MaxFontSize = crop.Width * 0.048f,
             },
             new TextPlacementRequest
             {
                 Element = primaryElement,
-                MinFontSize = crop.Width * 0.053f,
+                MinFontSize = crop.Width * 0.063f,
                 MaxFontSize = crop.Width * 0.07f,
             },
         }, focalPoint);
@@ -107,7 +125,7 @@ public static class FlowPrimaryAndSecondaryService
         using var surface = SKSurface.Create(new SKImageInfo(bitmap.Width, bitmap.Height));
         using var surfaceCanvas = surface.Canvas;
         surfaceCanvas.DrawBitmap(bitmap, 0, 0);
-        DrawOverlay(bgForText, surfaceCanvas, bitmap);
+        DrawOverlay(trueAccentColor.ShiftBrightness(70), surfaceCanvas, bitmap);
         DrawTexts(placements, cropped, bitmap, surfaceCanvas);
 
         using var finalImage = surface.Snapshot();
@@ -122,6 +140,7 @@ public static class FlowPrimaryAndSecondaryService
 
     private static void DrawTexts(List<TextPlacement> placements, Mat cropped, SKBitmap bitmap, SKCanvas surfaceCanvas)
     {
+        var align = Aligns.Take();
         foreach (var placement in placements)
         {
             float dimAmount = Math.Max(0.4f, ImageEffectsHelper.CalculateDimAmount(cropped, placement.Bounds, placement.Element.Color));
@@ -132,6 +151,7 @@ public static class FlowPrimaryAndSecondaryService
             {
                 Bounds = placement.Bounds,
                 MaxFontSize = placement.MaxFontSize,
+                HorizontalAlign = align,
             });
         }
     }
@@ -140,7 +160,7 @@ public static class FlowPrimaryAndSecondaryService
     {
         using var overlayPaint = new SKPaint
         {
-            Color = bgForText.WithAlpha((byte)(0.08f * 255)),
+            Color = bgForText.WithAlpha((byte)(0.05f * 255)),
             BlendMode = SKBlendMode.SrcOver,
         };
         surfaceCanvas.DrawRect(0, 0, bitmap.Width, bitmap.Height, overlayPaint);
@@ -183,27 +203,11 @@ public static class FlowPrimaryAndSecondaryService
         }
     }
 
-    private static SKColor GetAccessColor(SKBitmap bitmap, out SKColor bgForText, out SKColor shadowColor)
+    private static SKColor GetAccessColor(SKBitmap bitmap)
     {
         var palette = ImageColorPaletteHelper.ExtractPalette(bitmap);
-
-        // Most dominant color (first in palette = largest cluster)
         var dominantColor = palette.First();
-
-        // Shift hue slightly to create accent, keep it analogous
         var accentColor = dominantColor.ShiftHue(FloatHelper.Random(-45, 45));
-
-        // bgForText: saturated mid-dark version of accent — visible on any image
-        bgForText = accentColor.ShiftBrightness(dominantColor.IsDark()
-            ? FloatHelper.Random(30, 50)   // image is dark → use mid tone
-            : FloatHelper.Random(15, 30)); // image is light → use darker tone
-
-        // text color on bgForText should contrast against it
-        // shadowColor: opposite brightness direction from bgForText, semi-transparent
-        shadowColor = bgForText.IsDark()
-            ? bgForText.ShiftBrightness(80).WithAlpha(180)
-            : bgForText.ShiftBrightness(10).WithAlpha(180);
-
         return accentColor;
     }
 }

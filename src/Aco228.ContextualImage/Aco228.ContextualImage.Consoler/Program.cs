@@ -32,6 +32,7 @@ var baseFolder = new DirectoryInfo(@"C:\Users\Lenovo\Documents\ArbitrageSoulsSto
 var folders = baseFolder.GetDirectories().ToManagedList();
 
 folders.ShuffleAgain();
+int index = 1;
 
 for (;;)
 {
@@ -44,11 +45,34 @@ for (;;)
         continue;
     
     var txt = txts.Take();
-    await FlowPrimaryTextBlurService.Run(
+    await FlowPrimaryAndSecondaryService.Run(
         path: image.FullName,
         primaryText: txt.PrimaryText,
         secondaryText: txt.SecondaryText,
         aspectRatio: "4:5");
+    continue;
+    if(index == 1)
+        await FlowPrimaryTextBlurService.Run(
+            path: image.FullName,
+            primaryText: txt.PrimaryText,
+            secondaryText: txt.SecondaryText,
+            aspectRatio: "4:5");
+    if(index == 2)
+        await FlowPrimaryAndSecondaryService.Run(
+            path: image.FullName,
+            primaryText: txt.PrimaryText,
+            secondaryText: txt.SecondaryText,
+            aspectRatio: "4:5");
+    if(index == 3)
+        await FlowPrimaryTextService.Run(
+            path: image.FullName,
+            primaryText: txt.PrimaryText,
+            secondaryText: txt.SecondaryText,
+            aspectRatio: "4:5");
+
+    index++;
+    if (index == 4)
+        index = 1;
 }
 
 

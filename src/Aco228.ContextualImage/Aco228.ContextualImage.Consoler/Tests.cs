@@ -135,8 +135,7 @@ public static class Tests
 
         foreach (var placement in placements)
         {
-            float dimAmount = Math.Max(0.4f,
-                ImageEffectsHelper.CalculateDimAmount(cropped, placement.Bounds, placement.Element.Color));
+            float dimAmount = Math.Max(0.4f, ImageEffectsHelper.CalculateDimAmount(cropped, placement.Bounds, placement.Element.Color));
             bool isBottom = placement.Bounds.Top > bitmap.Height / 2f;
             SkiaTextHelper.DrawTextGradient(surfaceCanvas, placement.Bounds, dimAmount, isBottom, bitmap.Height);
 

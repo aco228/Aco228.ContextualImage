@@ -79,7 +79,7 @@ public static class FlowPrimaryTextBlurService
         }, focalPoint);
 
         // Blurred background surface
-        using var blurredSurface = CreateBlurredSurface(bitmap, sigma: 160f);  // 8-20 range safe
+        using var blurredSurface = CreateBlurredSurface(bitmap, sigma: 450f);  // 8-20 range safe
         using var canvas = blurredSurface.Canvas;
 
         DrawOverlay(bgForText, canvas, bitmap);
@@ -106,7 +106,7 @@ public static class FlowPrimaryTextBlurService
         if (source == null || source.Width <= 0 || source.Height <= 0)
             throw new ArgumentException("Invalid source bitmap for blur");
 
-        sigma = Math.Clamp(sigma, 2f, 25f);  // prevent extreme values causing native issues
+        sigma = Math.Clamp(sigma, 2f, 80f);  // prevent extreme values causing native issues
 
         var info = new SKImageInfo(source.Width, source.Height, SKColorType.Bgra8888, SKAlphaType.Premul);
         var surface = SKSurface.Create(info) ?? throw new InvalidOperationException("Failed to create SKSurface");
@@ -145,10 +145,15 @@ public static class FlowPrimaryTextBlurService
             bool isBottom = placement.Bounds.Top > bitmap.Height / 2f;
 
             SkiaTextHelper.DrawTextGradient(canvas, placement.Bounds, dimAmount, isBottom, bitmap.Height);
-
+            var left = (int)Math.Ceiling(canvas.LocalClipBounds.Width * 0.1);
+            var top = (int) Math.Ceiling(canvas.LocalClipBounds.Height * 0.1);
             SkiaTextHelper.DrawText(canvas, placement.Element, new TextRenderOptions
             {
-                Bounds = placement.Bounds,
+                Bounds = new SKRect(
+                    left,
+                    top,
+                    canvas.LocalClipBounds.Width - left,
+                    canvas.LocalClipBounds.Height - top),
                 MaxFontSize = placement.MaxFontSize,
             });
         }

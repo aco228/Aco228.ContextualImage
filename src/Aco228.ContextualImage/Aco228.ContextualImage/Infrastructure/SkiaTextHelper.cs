@@ -102,7 +102,7 @@ public static class SkiaTextHelper
                     element.ShadowRadius.Value, element.ShadowColor.Value);
         }
 
-        // Pass 3: all outlines
+        // Pass 3: outlines
         if (element.OutlineWidth.HasValue && element.OutlineColor.HasValue)
         {
             foreach (var (line, x, y) in linePositions)
@@ -110,7 +110,7 @@ public static class SkiaTextHelper
                     element.OutlineWidth.Value, element.OutlineColor.Value);
         }
 
-        // Pass 4: all fills
+        // Pass 4: fills
         foreach (var (line, x, y) in linePositions)
             DrawFill(canvas, line, font, x, y, options.HorizontalAlign, element.Color);
     }
@@ -125,34 +125,16 @@ public static class SkiaTextHelper
     private static void DrawOutline(SKCanvas canvas, string line, SKFont font,
         float x, float y, SKTextAlign align, float outlineWidth, SKColor outlineColor)
     {
-        // CHANGE THIS to your ACTUAL inner text color (critical!)
-        // Usually SKColors.White or SKColors.Black depending on background
-        // If you don't know → use SKColors.White for light text on dark images
-        SKColor fillColor = SKColors.White;  // ← EDIT THIS LINE!
-
         using var strokePaint = new SKPaint
         {
             Color       = outlineColor,
             IsAntialias = true,
             Style       = SKPaintStyle.Stroke,
             StrokeWidth = outlineWidth * font.Size,
-            StrokeJoin  = SKStrokeJoin.Round,     // Kills sharp miter spikes
-            StrokeCap   = SKStrokeCap.Round,      // Smooths ends
-            StrokeMiter = 1f,                     // Low limit (safety net)
+            StrokeJoin  = SKStrokeJoin.Round,
+            StrokeCap   = SKStrokeCap.Round,
         };
-
-        using var fillPaint = new SKPaint
-        {
-            Color       = fillColor,
-            IsAntialias = true,
-            Style       = SKPaintStyle.Fill,
-        };
-
-        // 1. Thick outline (stroke) first
         canvas.DrawText(line, x, y, align, font, strokePaint);
-
-        // 2. Sharp fill on top → covers internal double-stroking / overlaps
-        canvas.DrawText(line, x, y, align, font, fillPaint);
     }
 
     private static void DrawShadow(SKCanvas canvas, string line, SKFont font,
