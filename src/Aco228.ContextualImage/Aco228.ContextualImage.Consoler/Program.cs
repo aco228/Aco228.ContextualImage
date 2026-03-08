@@ -45,12 +45,12 @@ for (;;)
         continue;
     
     var txt = txts.Take();
-    await FlowPrimaryAndSecondaryService.Run(
-        path: image.FullName,
-        primaryText: txt.PrimaryText,
-        secondaryText: txt.SecondaryText,
-        aspectRatio: "4:5");
-    continue;
+    // await FlowPrimaryTextBlurService.Run(
+    //     path: image.FullName,
+    //     primaryText: txt.PrimaryText,
+    //     secondaryText: txt.SecondaryText,
+    //     aspectRatio: "4:5");
+    // continue;
     if(index == 1)
         await FlowPrimaryTextBlurService.Run(
             path: image.FullName,

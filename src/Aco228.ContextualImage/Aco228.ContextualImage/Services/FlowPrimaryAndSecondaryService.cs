@@ -12,7 +12,7 @@ public static class FlowPrimaryAndSecondaryService
     private static ManagedList<ManagedList<SKColor>?> Colors = new()
     {
         null,
-        new ManagedList<SKColor> { SKColors.Red, SKColors.Green, SKColors.Blue },
+        // new ManagedList<SKColor> { SKColors.Brown, SKColors.DarkBlue, SKColors.Indigo, SKColors.Chocolate, SKColors.DarkOliveGreen },
     };
     
     private static ManagedList<SKTextAlign> Aligns = new()
@@ -39,8 +39,8 @@ public static class FlowPrimaryAndSecondaryService
         },
         () => new TextElement
         {
+            ShadowRadius = 1.1f,
             OutlineWidth = FloatHelper.Random(0.4f, 0.8f),
-            ShadowRadius = FloatHelper.Random(0.4f, 1f),
             Background = null,
         },
     };
@@ -49,7 +49,7 @@ public static class FlowPrimaryAndSecondaryService
     {
         () => new TextElement
         {
-            ShadowRadius = 1.5f,
+            ShadowRadius = 1.5f, 
             Background = new()
             {
                 Color = new(0,0,0,0),
@@ -86,16 +86,16 @@ public static class FlowPrimaryAndSecondaryService
         var trueAccentColor = GetAccessColor(bitmap);
         var accentColorTemplate = Colors.Take()?.Take().ShiftHue(FloatHelper.Random(-20, 20));
         if (accentColorTemplate == null)
-            accentColorTemplate = trueAccentColor;
+            accentColorTemplate = trueAccentColor.ShiftHue(FloatHelper.Random(-45, 45));
 
         var accentColor = accentColorTemplate.Value;
         
         var primaryElement = PrimaryTextVariations.Take()!();
-        primaryElement.Text = primaryText;
-        primaryElement.Font = font;
-        primaryElement.OutlineColor = accentColor.IsDark() ? accentColor.ShiftBrightness(5) : accentColor.ShiftBrightness(70);
-        primaryElement.ShadowColor = accentColor.IsDark() ? accentColor.ShiftBrightness(5).WithAlpha(180) : accentColor.ShiftBrightness(95).WithAlpha(100);
-        primaryElement.Color = accentColor.IsDark() ? accentColor.ShiftBrightness(90) : accentColor.ShiftBrightness(20);
+        primaryElement.Text = FloatHelper.RandomChance<string>(() => primaryText, () => primaryText.ToUpperInvariant());
+        primaryElement.Font = FontManager.FindBold(font);
+        primaryElement.OutlineColor = accentColor.IsDark() ? accentColor.ShiftBrightness(25) : accentColor.ShiftBrightness(70);
+        primaryElement.ShadowColor = accentColor.IsDark() ? accentColor.ShiftBrightness(25).WithAlpha(180) : accentColor.ShiftBrightness(95).WithAlpha(100);
+        primaryElement.Color = accentColor.IsDark() ? accentColor.ShiftBrightness(95) : accentColor.ShiftBrightness(20);
         if(primaryElement.Background != null) 
             primaryElement.Background.Color = accentColor.IsDark() ? accentColor : accentColor.ShiftBrightness(70);
 
@@ -109,13 +109,13 @@ public static class FlowPrimaryAndSecondaryService
             new TextPlacementRequest
             {
                 Element = secondaryElement,
-                MinFontSize = crop.Width * 0.045f,
+                MinFontSize = crop.Width * 0.042f,
                 MaxFontSize = crop.Width * 0.048f,
             },
             new TextPlacementRequest
             {
                 Element = primaryElement,
-                MinFontSize = crop.Width * 0.063f,
+                MinFontSize = crop.Width * 0.059f,
                 MaxFontSize = crop.Width * 0.07f,
             },
         }, focalPoint);
@@ -125,7 +125,7 @@ public static class FlowPrimaryAndSecondaryService
         using var surface = SKSurface.Create(new SKImageInfo(bitmap.Width, bitmap.Height));
         using var surfaceCanvas = surface.Canvas;
         surfaceCanvas.DrawBitmap(bitmap, 0, 0);
-        DrawOverlay(trueAccentColor.ShiftBrightness(70), surfaceCanvas, bitmap);
+        DrawOverlay(accentColor.ShiftBrightness(70), surfaceCanvas, bitmap);
         DrawTexts(placements, cropped, bitmap, surfaceCanvas);
 
         using var finalImage = surface.Snapshot();
@@ -145,7 +145,7 @@ public static class FlowPrimaryAndSecondaryService
         {
             float dimAmount = Math.Max(0.4f, ImageEffectsHelper.CalculateDimAmount(cropped, placement.Bounds, placement.Element.Color));
             bool isBottom = placement.Bounds.Top > bitmap.Height / 2f;
-            SkiaTextHelper.DrawTextGradient(surfaceCanvas, placement.Bounds, dimAmount, isBottom, bitmap.Height);
+            SkiaTextHelper.DrawTextGradient(surfaceCanvas, placement.Bounds, dimAmount, isBottom);
 
             SkiaTextHelper.DrawText(surfaceCanvas, placement.Element, new TextRenderOptions
             {
@@ -160,7 +160,7 @@ public static class FlowPrimaryAndSecondaryService
     {
         using var overlayPaint = new SKPaint
         {
-            Color = bgForText.WithAlpha((byte)(0.05f * 255)),
+            Color = bgForText.WithAlpha((byte)(0.06f * 255)),
             BlendMode = SKBlendMode.SrcOver,
         };
         surfaceCanvas.DrawRect(0, 0, bitmap.Width, bitmap.Height, overlayPaint);
@@ -190,8 +190,8 @@ public static class FlowPrimaryAndSecondaryService
                 : zoneAvg.ShiftBrightness(95);
 
             secondaryElement.OutlineWidth = isDarkZone
-                ? FloatHelper.Random(0.05f, 0.18f)
-                : FloatHelper.Random(0.01f, 0.05f);
+                ? FloatHelper.Random(0.06f, 0.19f)
+                : FloatHelper.Random(0.03f, 0.05f);
             
 
             if(secondaryElement.Background != null)

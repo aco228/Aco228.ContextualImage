@@ -21,7 +21,7 @@ public class TextPlacement
 public static class TextPlacementHelper
 {
     public static List<TextPlacement> FindPlacements(Mat croppedMat, List<TextPlacementRequest> requests,
-        Rect focalPoint, float placementGapFraction = 0.015f)
+        Rect focalPoint, float placementGapFraction = 0.003f)
     {
         int w = croppedMat.Width;
         int h = croppedMat.Height;

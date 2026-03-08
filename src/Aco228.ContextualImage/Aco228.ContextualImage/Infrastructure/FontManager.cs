@@ -41,4 +41,10 @@ public static class FontManager
 
         return SKTypeface.FromFamilyName("Segoe UI", SKFontStyle.Bold) ?? SKTypeface.Default;
     }
+    
+    public static SKTypeface FindBold(SKTypeface typeface)
+    {
+        var bold = _fontsBold.FirstOrDefault(x => x.Name.Contains(typeface.FamilyName));
+        return bold == null ? typeface : SKTypeface.FromFile(bold.FullName);
+    }
 }

@@ -9,6 +9,14 @@ namespace Aco228.ContextualImage.Services;
 
 public static class FlowPrimaryTextBlurService
 {
+    
+    private static ManagedList<SKTextAlign> Aligns = new()
+    {
+        SKTextAlign.Center,
+        SKTextAlign.Left,
+        SKTextAlign.Right,
+    };
+    
     private static readonly ManagedList<Func<TextElement>> PrimaryTextVariations = new()
     {
         () => new TextElement
@@ -58,15 +66,34 @@ public static class FlowPrimaryTextBlurService
 
         var accentColor = GetAccessColor(bitmap, out var bgForText, out var shadowColor);
 
+        // The blurred background IS the image — so text color derived from the same
+        // palette will always blend in. Instead, pick text/outline colors purely on
+        // contrast: if the background is dark, use bright text and a dark outline,
+        // and vice versa. Use the accent color only for the outline/shadow to add
+        // visual interest without sacrificing legibility.
+        bool bgIsDark = accentColor.IsDark();
+
+        // Text: maximum contrast against background
+        SKColor textColor    = bgIsDark ? SKColors.White : SKColors.Black;
+
+        // Outline: accent color pushed to opposite end of brightness from text
+        SKColor outlineColor = bgIsDark
+            ? accentColor.ShiftBrightness(FloatHelper.Random(5, 20))   // dark outline on bright text
+            : accentColor.ShiftBrightness(FloatHelper.Random(75, 90));  // bright outline on dark text
+
+        SKColor shadowCol = outlineColor.WithAlpha(180);
+
         var primaryElement = PrimaryTextVariations.Take()!();
-        primaryElement.Text = primaryText;
-        primaryElement.Font = font;
-        primaryElement.OutlineColor = accentColor.IsDark() ? accentColor.ShiftBrightness(5) : accentColor.ShiftBrightness(70);
-        primaryElement.ShadowColor = accentColor.IsDark() ? accentColor.ShiftBrightness(5).WithAlpha(180) : accentColor.ShiftBrightness(95).WithAlpha(100);
-        primaryElement.Color = accentColor.IsDark() ? accentColor.ShiftBrightness(90) : accentColor.ShiftBrightness(20);
+        primaryElement.Text         = FloatHelper.RandomChance<string>(() => primaryText, () => primaryText.ToUpperInvariant());
+        primaryElement.Font         = FontManager.FindBold(font);
+        primaryElement.Color        = textColor;
+        primaryElement.OutlineColor = outlineColor;
+        primaryElement.ShadowColor  = shadowCol;
 
         if (primaryElement.Background != null)
-            primaryElement.Background.Color = accentColor.IsDark() ? accentColor : accentColor.ShiftBrightness(70);
+            primaryElement.Background.Color = bgIsDark
+                ? accentColor.ShiftBrightness(10)   // dark bg box
+                : accentColor.ShiftBrightness(80);  // light bg box
 
         var placements = TextPlacementHelper.FindPlacements(cropped, new List<TextPlacementRequest>
         {
@@ -139,16 +166,18 @@ public static class FlowPrimaryTextBlurService
     {
         if (placements == null || canvas == null || bitmap == null || bitmap.Width <= 0) return;
 
+        var align = Aligns.Take();
         foreach (var placement in placements)
         {
             float dimAmount = Math.Max(0.4f, ImageEffectsHelper.CalculateDimAmount(cropped, placement.Bounds, placement.Element.Color));
             bool isBottom = placement.Bounds.Top > bitmap.Height / 2f;
-
-            SkiaTextHelper.DrawTextGradient(canvas, placement.Bounds, dimAmount, isBottom, bitmap.Height);
+            
+            SkiaTextHelper.DrawTextGradient(canvas, placement.Bounds, dimAmount, isBottom);
             var left = (int)Math.Ceiling(canvas.LocalClipBounds.Width * 0.1);
             var top = (int) Math.Ceiling(canvas.LocalClipBounds.Height * 0.1);
             SkiaTextHelper.DrawText(canvas, placement.Element, new TextRenderOptions
             {
+                HorizontalAlign = align,
                 Bounds = new SKRect(
                     left,
                     top,
@@ -162,10 +191,15 @@ public static class FlowPrimaryTextBlurService
     private static void DrawOverlay(SKColor bgForText, SKCanvas canvas, SKBitmap bitmap)
     {
         if (canvas == null || bitmap == null || bitmap.Width <= 0) return;
+        
+        if(bgForText.IsDark())
+            bgForText = bgForText.ShiftBrightness(90);
+        else
+            bgForText = bgForText.ShiftBrightness(10);
 
         using var overlayPaint = new SKPaint
         {
-            Color = bgForText.WithAlpha((byte)(0.08f * 255)),
+            Color = bgForText.WithAlpha((byte)(0.35f * 255)),
             BlendMode = SKBlendMode.SrcOver,
         };
 

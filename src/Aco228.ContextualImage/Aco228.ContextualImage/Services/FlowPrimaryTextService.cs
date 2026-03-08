@@ -51,13 +51,13 @@ public static class FlowPrimaryTextService
         var accentColor = GetAccessColor(bitmap, out var bgForText, out var shadowColor);
 
         var primaryElement = PrimaryTextVariations.Take()!();
-        primaryElement.Text = primaryText;
-        primaryElement.Font = font;
-        primaryElement.OutlineColor = accentColor.IsDark() ? accentColor.ShiftBrightness(5) : accentColor.ShiftBrightness(70);
+        primaryElement.Text = FloatHelper.RandomChance<string>(() => primaryText, () => primaryText.ToUpperInvariant());
+        primaryElement.Font = FontManager.FindBold(font);
+        primaryElement.OutlineColor = accentColor.IsDark() ? accentColor.ShiftBrightness(5) : accentColor.ShiftBrightness(80);
         primaryElement.ShadowColor = accentColor.IsDark() ? accentColor.ShiftBrightness(5).WithAlpha(180) : accentColor.ShiftBrightness(95).WithAlpha(100);
-        primaryElement.Color = accentColor.IsDark() ? accentColor.ShiftBrightness(90) : accentColor.ShiftBrightness(20);
+        primaryElement.Color = accentColor.IsDark() ? accentColor.ShiftBrightness(95) : accentColor.ShiftBrightness(20);
         if(primaryElement.Background != null) 
-            primaryElement.Background.Color = accentColor.IsDark() ? accentColor : accentColor.ShiftBrightness(70);
+            primaryElement.Background.Color = accentColor.IsDark() ? accentColor.ShiftBrightness(35) : accentColor.ShiftBrightness(70);
         
 
         var placements = TextPlacementHelper.FindPlacements(cropped, new List<TextPlacementRequest>
@@ -92,7 +92,7 @@ public static class FlowPrimaryTextService
         {
             float dimAmount = Math.Max(0.4f, ImageEffectsHelper.CalculateDimAmount(cropped, placement.Bounds, placement.Element.Color));
             bool isBottom = placement.Bounds.Top > bitmap.Height / 2f;
-            SkiaTextHelper.DrawTextGradient(surfaceCanvas, placement.Bounds, dimAmount, isBottom, bitmap.Height);
+            SkiaTextHelper.DrawTextGradient(surfaceCanvas, placement.Bounds, dimAmount, isBottom);
 
             SkiaTextHelper.DrawText(surfaceCanvas, placement.Element, new TextRenderOptions
             {

@@ -69,6 +69,6 @@ public static class ColorHelper
     public static bool IsDark(this SKColor color)
     {
         float brightness = color.Red * 0.299f + color.Green * 0.587f + color.Blue * 0.114f;
-        return brightness < 115f;
+        return brightness < 125f;
     }
 }
