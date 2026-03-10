@@ -48,7 +48,7 @@ public class FlowPrimaryTextService : ContextualFlow
         var accentColor = GetAccessColor(bitmap, out var bgForText, out _);
 
         var primaryElement = PrimaryTextVariations.Take()!();
-        primaryElement.Text = FloatHelper.RandomChance<string>(() => primaryText, () => primaryText.ToUpperInvariant());
+        primaryElement.Text = RandomHelper.RandomChance<string>(() => primaryText, () => primaryText.ToUpperInvariant());
         primaryElement.Font = FontManager.FindBold(font);
         primaryElement.OutlineColor = accentColor.IsDark() ? accentColor.ShiftBrightness(5) : accentColor.ShiftBrightness(80);
         primaryElement.ShadowColor = accentColor.IsDark() ? accentColor.ShiftBrightness(5).WithAlpha(180) : accentColor.ShiftBrightness(95).WithAlpha(100);

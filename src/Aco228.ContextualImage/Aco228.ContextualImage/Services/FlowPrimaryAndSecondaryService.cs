@@ -85,7 +85,7 @@ public class FlowPrimaryAndSecondaryService : ContextualFlow, ITransient
         var accentColor = accentColorTemplate.Value;
         
         var primaryElement = PrimaryTextVariations.Take()!();
-        primaryElement.Text = FloatHelper.RandomChance<string>(() => primaryText, () => primaryText.ToUpperInvariant());
+        primaryElement.Text = RandomHelper.RandomChance<string>(() => primaryText, () => primaryText.ToUpperInvariant());
         primaryElement.Font = FontManager.FindBold(font);
         primaryElement.OutlineColor = accentColor.IsDark() ? accentColor.ShiftBrightness(25) : accentColor.ShiftBrightness(70);
         primaryElement.ShadowColor = accentColor.IsDark() ? accentColor.ShiftBrightness(25).WithAlpha(180) : accentColor.ShiftBrightness(95).WithAlpha(100);

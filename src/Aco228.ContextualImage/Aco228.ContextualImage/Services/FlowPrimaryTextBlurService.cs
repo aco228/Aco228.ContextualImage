@@ -66,7 +66,7 @@ public class FlowPrimaryTextBlurService : ContextualFlow
         SKColor shadowCol = outlineColor.WithAlpha(180);
 
         var primaryElement = PrimaryTextVariations.Take()!();
-        primaryElement.Text         = FloatHelper.RandomChance<string>(() => primaryText, () => primaryText.ToUpperInvariant());
+        primaryElement.Text         = RandomHelper.RandomChance<string>(() => primaryText, () => primaryText.ToUpperInvariant());
         primaryElement.Font         = FontManager.FindBold(font);
         primaryElement.Color        = textColor;
         primaryElement.OutlineColor = outlineColor;
