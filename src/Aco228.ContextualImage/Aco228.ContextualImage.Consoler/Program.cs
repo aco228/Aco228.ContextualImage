@@ -34,6 +34,13 @@ var folders = baseFolder.GetDirectories().ToManagedList();
 folders.ShuffleAgain();
 int index = 1;
 
+var services = new OrderedList<ContextualFlow>()
+{
+    // new FlowPrimaryAndSecondaryService(),
+    // new FlowPrimaryTextService(),
+    new FlowPrimaryTextBlurService(),
+};
+
 for (;;)
 {
     var folder = folders.Take();
@@ -45,34 +52,16 @@ for (;;)
         continue;
     
     var txt = txts.Take();
-    // await FlowPrimaryTextBlurService.Run(
-    //     path: image.FullName,
-    //     primaryText: txt.PrimaryText,
-    //     secondaryText: txt.SecondaryText,
-    //     aspectRatio: "4:5");
-    // continue;
-    if(index == 1)
-        await FlowPrimaryTextBlurService.Run(
-            path: image.FullName,
-            primaryText: txt.PrimaryText,
-            secondaryText: txt.SecondaryText,
-            aspectRatio: "4:5");
-    if(index == 2)
-        await FlowPrimaryAndSecondaryService.Run(
-            path: image.FullName,
-            primaryText: txt.PrimaryText,
-            secondaryText: txt.SecondaryText,
-            aspectRatio: "4:5");
-    if(index == 3)
-        await FlowPrimaryTextService.Run(
-            path: image.FullName,
-            primaryText: txt.PrimaryText,
-            secondaryText: txt.SecondaryText,
-            aspectRatio: "4:5");
+    var service = services.Take();
+    await service.Run(
+        image.FullName, 
+        txt.PrimaryText, 
+        txt.SecondaryText, 
+        "4:5", 
+        width: 1080, 
+        height: 1350,
+        debug: true);
 
-    index++;
-    if (index == 4)
-        index = 1;
 }
 
 

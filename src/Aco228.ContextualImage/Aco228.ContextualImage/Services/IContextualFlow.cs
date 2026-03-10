@@ -1,4 +1,5 @@
-﻿using Aco228.Common.Helpers;
+﻿using System.Diagnostics.CodeAnalysis;
+using Aco228.Common.Helpers;
 using Aco228.Common.Infrastructure;
 using Aco228.ContextualImage.Infrastructure;
 using Aco228.ContextualImage.Models;
@@ -12,14 +13,46 @@ public interface IContextualFlow
     
 }
 
-public class ContextualFlow : IContextualFlow
+public abstract class ContextualFlow : IContextualFlow
 {
+    public abstract Task<FileInfo> Run(
+        string imagePath,
+        string primaryText,
+        string secondaryText,
+        string aspectRatio,
+        int width, int height,
+        bool debug = false);
+    
     private static ManagedList<SKTextAlign> Aligns = new()
     {
         SKTextAlign.Center,
         SKTextAlign.Left,
         SKTextAlign.Right,
     };
+    
+    protected static Mat ResizeAndGetBitmap(string imagePath, string aspectRatio, int width, int height,[NotNull] out SKBitmap? bitmap)
+    {
+        Mat? resizedCropped = null;
+        bitmap = null;
+        try
+        {
+            var fileInfo = new FileInfo(imagePath);
+            using var mat = new Mat(fileInfo.FullName);
+            Rect crop = SmartCropHelper.FindBestCrop(mat, aspectRatio);
+
+            using var cropped = new Mat(mat, crop);
+            resizedCropped = new Mat();
+            Cv2.Resize(cropped, resizedCropped, new Size(width, height));
+            bitmap = SkHelper.MatToSkBitmap(resizedCropped);
+            return resizedCropped;
+        }
+        catch
+        {
+            bitmap?.Dispose();
+            resizedCropped?.Dispose();
+            throw;
+        }
+    }
     
     protected void DrawTexts(List<TextPlacement> placements, Mat cropped, SKBitmap bitmap, SKCanvas surfaceCanvas)
     {
@@ -85,11 +118,15 @@ public class ContextualFlow : IContextualFlow
         }
     }
     
-    protected SKColor GetAccessColor(SKBitmap bitmap)
+    protected SKColor GetAccessColor(SKBitmap bitmap, out SKColor dominantColor, out SKColor bgForText)
     {
         var palette = ImageColorPaletteHelper.ExtractPalette(bitmap);
-        var dominantColor = palette.First();
+        dominantColor = palette.First();
         var accentColor = dominantColor.ShiftHue(FloatHelper.Random(-45, 45));
+        bgForText = accentColor.ShiftBrightness(dominantColor.IsDark()
+            ? FloatHelper.Random(30, 50)   // image is dark → use mid tone
+            : FloatHelper.Random(15, 30)); // image is light → use darker tone
+        
         return accentColor;
     }
 }

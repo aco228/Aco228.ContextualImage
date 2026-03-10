@@ -1,5 +1,6 @@
 ﻿using Aco228.Common.Helpers;
 using Aco228.Common.Infrastructure;
+using Aco228.Common.LocalStorage;
 using Aco228.ContextualImage.Infrastructure;
 using Aco228.ContextualImage.Models;
 using OpenCvSharp;
@@ -7,9 +8,8 @@ using SkiaSharp;
 
 namespace Aco228.ContextualImage.Services;
 
-public static class FlowPrimaryTextBlurService
+public class FlowPrimaryTextBlurService : ContextualFlow
 {
-    
     private static ManagedList<SKTextAlign> Aligns = new()
     {
         SKTextAlign.Center,
@@ -39,38 +39,20 @@ public static class FlowPrimaryTextBlurService
             Background = null,
         },
     };
-
-    public static async Task Run(string path, string primaryText, string secondaryText, string aspectRatio)
+    
+    public override Task<FileInfo> Run(string imagePath, string primaryText, string secondaryText, string aspectRatio, int width, int height, bool debug = false)
+        => Run(imagePath, primaryText, aspectRatio, width, height, debug: debug);
+        
+    public async Task<FileInfo> Run(string imagePath, string primaryText, string aspectRatio, int width, int height, float blurSigma = 80f, bool debug = false)
     {
-        var fileInfo = new FileInfo(path);
-        if (!fileInfo.Exists)
-            throw new FileNotFoundException("Input image not found", path);
-
-        using var mat = new Mat(fileInfo.FullName);
-        if (mat.Empty())
-            throw new InvalidOperationException("Failed to load image as Mat");
-
-        Rect crop = SmartCropHelper.FindBestCrop(mat, aspectRatio);
-
         var font = FontManager.TakeNext();
 
-        using var cropped = new Mat(mat, crop);
-        if (cropped.Empty())
-            throw new InvalidOperationException("Cropped Mat is empty");
+        using var cropped = ResizeAndGetBitmap(imagePath, aspectRatio, width, height, out var bitmap);
+        using var skBitmap = bitmap;
 
         Rect focalPoint = Yolov8nHelper.FindFocalPoint(cropped);
 
-        using var bitmap = SkHelper.MatToSkBitmap(cropped);
-        if (bitmap == null || bitmap.Width <= 0 || bitmap.Height <= 0)
-            throw new InvalidOperationException("Failed to convert cropped Mat to SKBitmap");
-
         var accentColor = GetAccessColor(bitmap, out var bgForText, out var shadowColor);
-
-        // The blurred background IS the image — so text color derived from the same
-        // palette will always blend in. Instead, pick text/outline colors purely on
-        // contrast: if the background is dark, use bright text and a dark outline,
-        // and vice versa. Use the accent color only for the outline/shadow to add
-        // visual interest without sacrificing legibility.
         bool bgIsDark = accentColor.IsDark();
 
         // Text: maximum contrast against background
@@ -100,32 +82,34 @@ public static class FlowPrimaryTextBlurService
             new TextPlacementRequest
             {
                 Element = primaryElement,
-                MinFontSize = crop.Width * 0.093f,
-                MaxFontSize = crop.Width * 0.115f,
+                MinFontSize = cropped.Width * 0.093f,
+                MaxFontSize = cropped.Width * 0.115f,
             },
         }, focalPoint);
 
         // Blurred background surface
-        using var blurredSurface = CreateBlurredSurface(bitmap, sigma: 450f);  // 8-20 range safe
-        using var canvas = blurredSurface.Canvas;
+        using var surface = CreateBlurredSurface(bitmap, sigma: blurSigma);  // 8-20 range safe
+        using var canvas = surface.Canvas;
 
         DrawOverlay(bgForText, canvas, bitmap);
         DrawTexts(placements, cropped, bitmap, canvas);
-
-        using var finalImage = blurredSurface.Snapshot();
-        if (finalImage == null)
-            throw new InvalidOperationException("Failed to snapshot final image");
-
+        
+        using var finalImage = surface.Snapshot();
         using var finalBitmap = SKBitmap.FromImage(finalImage);
-        if (finalBitmap == null || finalBitmap.Width <= 0)
-            throw new InvalidOperationException("Failed to create final bitmap from snapshot");
 
         using var result = new Mat();
         SkHelper.SkBitmapToMat(finalBitmap, result);
 
-        Cv2.ImWrite("preview.jpg", result);
-        Cv2.ImShow("Best Crop", result);
-        Cv2.WaitKey(0);
+        var filePath = StorageManager.Instance.GetTempFolder().GetPathForFile(IdHelper.GetId() + ".jpg");
+        Cv2.ImWrite(filePath, result);
+
+        if (debug)
+        {
+            Cv2.ImShow("Best Crop", result);
+            Cv2.WaitKey(0);
+        }
+
+        return new FileInfo(filePath);
     }
 
     private static SKSurface CreateBlurredSurface(SKBitmap source, float sigma = 12f)
@@ -160,75 +144,5 @@ public static class FlowPrimaryTextBlurService
         }
 
         return surface;
-    }
-
-    private static void DrawTexts(List<TextPlacement> placements, Mat cropped, SKBitmap bitmap, SKCanvas canvas)
-    {
-        if (placements == null || canvas == null || bitmap == null || bitmap.Width <= 0) return;
-
-        var align = Aligns.Take();
-        foreach (var placement in placements)
-        {
-            float dimAmount = Math.Max(0.4f, ImageEffectsHelper.CalculateDimAmount(cropped, placement.Bounds, placement.Element.Color));
-            bool isBottom = placement.Bounds.Top > bitmap.Height / 2f;
-            
-            SkiaTextHelper.DrawTextGradient(canvas, placement.Bounds, dimAmount, isBottom);
-            var left = (int)Math.Ceiling(canvas.LocalClipBounds.Width * 0.1);
-            var top = (int) Math.Ceiling(canvas.LocalClipBounds.Height * 0.1);
-            SkiaTextHelper.DrawText(canvas, placement.Element, new TextRenderOptions
-            {
-                HorizontalAlign = align,
-                Bounds = new SKRect(
-                    left,
-                    top,
-                    canvas.LocalClipBounds.Width - left,
-                    canvas.LocalClipBounds.Height - top),
-                MaxFontSize = placement.MaxFontSize,
-            });
-        }
-    }
-
-    private static void DrawOverlay(SKColor bgForText, SKCanvas canvas, SKBitmap bitmap)
-    {
-        if (canvas == null || bitmap == null || bitmap.Width <= 0) return;
-        
-        if(bgForText.IsDark())
-            bgForText = bgForText.ShiftBrightness(90);
-        else
-            bgForText = bgForText.ShiftBrightness(10);
-
-        using var overlayPaint = new SKPaint
-        {
-            Color = bgForText.WithAlpha((byte)(0.35f * 255)),
-            BlendMode = SKBlendMode.SrcOver,
-        };
-
-        canvas.DrawRect(0, 0, bitmap.Width, bitmap.Height, overlayPaint);
-    }
-
-    private static SKColor GetAccessColor(SKBitmap bitmap, out SKColor bgForText, out SKColor shadowColor)
-    {
-        bgForText = SKColors.Black;
-        shadowColor = SKColors.Transparent;
-
-        if (bitmap == null || bitmap.Width <= 0)
-            return SKColors.Gray;
-
-        var palette = ImageColorPaletteHelper.ExtractPalette(bitmap);
-        if (palette == null || palette.Count == 0)
-            return SKColors.Gray;
-
-        var dominantColor = palette.First();
-        var accentColor = dominantColor.ShiftHue(FloatHelper.Random(-45, 45));
-
-        bgForText = accentColor.ShiftBrightness(dominantColor.IsDark()
-            ? FloatHelper.Random(30, 50)
-            : FloatHelper.Random(15, 30));
-
-        shadowColor = bgForText.IsDark()
-            ? bgForText.ShiftBrightness(80).WithAlpha(180)
-            : bgForText.ShiftBrightness(10).WithAlpha(180);
-
-        return accentColor;
     }
 }

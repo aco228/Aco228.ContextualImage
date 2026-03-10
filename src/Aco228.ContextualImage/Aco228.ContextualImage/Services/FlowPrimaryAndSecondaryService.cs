@@ -62,25 +62,22 @@ public class FlowPrimaryAndSecondaryService : ContextualFlow, ITransient
     };
     
     
-    public async Task<FileInfo> Run(
+    public override async Task<FileInfo> Run(
         string imagePath,
         string primaryText,
         string secondaryText,
         string aspectRatio,
+        int width, int height,
         bool debug = false)
     {
-        var fileInfo = new FileInfo(imagePath);
-        using var mat = new Mat(fileInfo.FullName);
-        Rect crop = SmartCropHelper.FindBestCrop(mat, aspectRatio);
-
         var font = FontManager.TakeNext();
 
-        using var cropped = new Mat(mat, crop);
-        Rect focalPoint = Yolov8nHelper.FindFocalPoint(cropped);
+        using var resizedCropped = ResizeAndGetBitmap(imagePath, aspectRatio, width, height, out var bitmap);
+        using var skBitmap = bitmap;
 
-        using var bitmap = SkHelper.MatToSkBitmap(cropped);
+        Rect focalPoint = Yolov8nHelper.FindFocalPoint(resizedCropped);
 
-        var trueAccentColor = GetAccessColor(bitmap);
+        var trueAccentColor = GetAccessColor(bitmap, out _, out _);
         var accentColorTemplate = Colors.Take()?.Take().ShiftHue(FloatHelper.Random(-20, 20));
         if (accentColorTemplate == null)
             accentColorTemplate = trueAccentColor.ShiftHue(FloatHelper.Random(-45, 45));
@@ -100,19 +97,19 @@ public class FlowPrimaryAndSecondaryService : ContextualFlow, ITransient
         secondaryElement.Text = secondaryText;
         secondaryElement.Font = font;
         
-        var placements = TextPlacementHelper.FindPlacements(cropped, new List<TextPlacementRequest>
+        var placements = TextPlacementHelper.FindPlacements(resizedCropped, new List<TextPlacementRequest>
         {
             new TextPlacementRequest
             {
                 Element = secondaryElement,
-                MinFontSize = crop.Width * 0.042f,
-                MaxFontSize = crop.Width * 0.048f,
+                MinFontSize = width * 0.042f,
+                MaxFontSize = width * 0.048f,
             },
             new TextPlacementRequest
             {
                 Element = primaryElement,
-                MinFontSize = crop.Width * 0.059f,
-                MaxFontSize = crop.Width * 0.07f,
+                MinFontSize = width * 0.059f,
+                MaxFontSize = width * 0.07f,
             },
         }, focalPoint);
 
@@ -122,7 +119,7 @@ public class FlowPrimaryAndSecondaryService : ContextualFlow, ITransient
         using var surfaceCanvas = surface.Canvas;
         surfaceCanvas.DrawBitmap(bitmap, 0, 0);
         DrawOverlay(accentColor.ShiftBrightness(70), surfaceCanvas, bitmap);
-        DrawTexts(placements, cropped, bitmap, surfaceCanvas);
+        DrawTexts(placements, resizedCropped, bitmap, surfaceCanvas);
 
         using var finalImage = surface.Snapshot();
         using var finalBitmap = SKBitmap.FromImage(finalImage);
