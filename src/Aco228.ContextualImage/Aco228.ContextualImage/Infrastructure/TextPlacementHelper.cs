@@ -35,8 +35,10 @@ public static class TextPlacementHelper
 
         int totalMinH = sortedRequests.Sum(r =>
         {
-            using var f = new SKFont(r.Element.Font, r.MinFontSize);
-            var lines = SkiaTextHelper.BreakIntoLines(r.Element.Text, f, slotW);
+            float bgPadX = r.Element.Background != null ? r.Element.Background.PaddingX * r.MinFontSize : 0f;
+            float textW  = Math.Max(1f, slotW - bgPadX * 2f);
+            using var f  = new SKFont(r.Element.Font, r.MinFontSize);
+            var lines    = SkiaTextHelper.BreakIntoLines(r.Element.Text, f, textW);
             return (int)(lines.Count * r.MinFontSize * 1.2f);
         });
 
@@ -93,16 +95,20 @@ public static class TextPlacementHelper
             int   chosenSlotH;
 
             {
+                float minBgPadX = request.Element.Background != null ? request.Element.Background.PaddingX * request.MinFontSize : 0f;
+                float minTextW  = Math.Max(1f, slotW - minBgPadX * 2f);
                 using var minFont  = new SKFont(request.Element.Font, request.MinFontSize);
-                var minLines       = SkiaTextHelper.BreakIntoLines(request.Element.Text, minFont, slotW);
-                float minBgPad     = request.Element.Background != null ? request.Element.Background.PaddingY * request.MinFontSize * 2f : 0f;
-                chosenSlotH        = (int)(minLines.Count * request.MinFontSize * 1.2f + minBgPad);
+                var minLines       = SkiaTextHelper.BreakIntoLines(request.Element.Text, minFont, minTextW);
+                float minBgPadY    = request.Element.Background != null ? request.Element.Background.PaddingY * request.MinFontSize * 2f : 0f;
+                chosenSlotH        = (int)(minLines.Count * request.MinFontSize * 1.2f + minBgPadY);
             }
 
             for (float fontSize = request.MaxFontSize; fontSize >= request.MinFontSize; fontSize -= 1f)
             {
+                float bgPadX = request.Element.Background != null ? request.Element.Background.PaddingX * fontSize : 0f;
+                float textW  = Math.Max(1f, slotW - bgPadX * 2f);
                 using var font = new SKFont(request.Element.Font, fontSize);
-                var lines      = SkiaTextHelper.BreakIntoLines(request.Element.Text, font, slotW);
+                var lines      = SkiaTextHelper.BreakIntoLines(request.Element.Text, font, textW);
                 float bgPadY   = request.Element.Background != null ? request.Element.Background.PaddingY * fontSize * 2f : 0f;
                 int slotH      = (int)(lines.Count * fontSize * 1.2f + bgPadY);
 

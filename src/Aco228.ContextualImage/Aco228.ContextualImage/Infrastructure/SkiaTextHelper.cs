@@ -45,16 +45,20 @@ public static class SkiaTextHelper
         using var font = new SKFont(element.Font, fontSize);
         font.Edging = SKFontEdging.SubpixelAntialias;
 
-        var lines = BreakIntoLines(element.Text, font, options.Bounds.Width);
+        // When a background with PaddingX is present, text must wrap within the
+        // inner width so the background pill doesn't reach the slot edges.
+        float bgPadX    = element.Background != null ? fontSize * element.Background.PaddingX : 0f;
+        float textWidth = Math.Max(1f, options.Bounds.Width - bgPadX * 2f);
+        var lines = BreakIntoLines(element.Text, font, textWidth);
 
-        // Per-line font size: if a single word is wider than bounds, shrink only that line.
+        // Per-line font size: if a single word is wider than the inner text width, shrink only that line.
         var lineFontSizes = lines.Select(line =>
         {
             float lineW = font.MeasureText(line);
-            if (lineW <= options.Bounds.Width)
+            if (lineW <= textWidth)
                 return fontSize;
             // Scale down proportionally so the word exactly fits
-            float scaled = fontSize * (options.Bounds.Width / lineW);
+            float scaled = fontSize * (textWidth / lineW);
             return Math.Max(scaled, Math.Max(element.MinimumFontSize, 1f));
         }).ToList();
 
@@ -63,13 +67,15 @@ public static class SkiaTextHelper
         float startY      = options.Bounds.MidY - totalHeight / 2f + fontSize;
 
         // Each entry: (line text, x, y, per-line font size)
+        // When a background is present, inset the anchor by bgPadX so that after
+        // SKRect.Inflate(padX) the outer edge of the pill lands exactly at the slot boundary.
         var linePositions = lines.Select((line, i) =>
         {
             float y = startY + i * lineHeight;
             float x = options.HorizontalAlign switch
             {
-                SKTextAlign.Left  => options.Bounds.Left,
-                SKTextAlign.Right => options.Bounds.Right,
+                SKTextAlign.Left  => options.Bounds.Left  + bgPadX,
+                SKTextAlign.Right => options.Bounds.Right - bgPadX,
                 _                 => options.Bounds.MidX
             };
             return (line, x, y, lineFontSizes[i]);
@@ -190,8 +196,10 @@ public static class SkiaTextHelper
         // If even the minimum font size doesn't fit, return the minimum anyway —
         // the caller clamps to MinimumFontSize so we must not go below it.
         {
+            float minBgPadX   = element.Background != null ? lo * element.Background.PaddingX : 0f;
+            float minTextW    = Math.Max(1f, options.Bounds.Width - minBgPadX * 2f);
             using var minFont = new SKFont(element.Font, lo);
-            var minLines      = BreakIntoLines(element.Text, minFont, options.Bounds.Width);
+            var minLines      = BreakIntoLines(element.Text, minFont, minTextW);
             float minHeight   = minLines.Count * lo * options.LineHeightMultiplier;
             if (minHeight > options.Bounds.Height)
                 return lo;
@@ -199,9 +207,11 @@ public static class SkiaTextHelper
 
         for (int i = 0; i < 20; i++)
         {
-            float mid = (lo + hi) / 2f;
-            using var font    = new SKFont(element.Font, mid);
-            var lines         = BreakIntoLines(element.Text, font, options.Bounds.Width);
+            float mid       = (lo + hi) / 2f;
+            float midBgPadX = element.Background != null ? mid * element.Background.PaddingX : 0f;
+            float midTextW  = Math.Max(1f, options.Bounds.Width - midBgPadX * 2f);
+            using var font  = new SKFont(element.Font, mid);
+            var lines       = BreakIntoLines(element.Text, font, midTextW);
             float totalHeight = lines.Count * mid * options.LineHeightMultiplier;
 
             if (totalHeight <= options.Bounds.Height) lo = mid;
