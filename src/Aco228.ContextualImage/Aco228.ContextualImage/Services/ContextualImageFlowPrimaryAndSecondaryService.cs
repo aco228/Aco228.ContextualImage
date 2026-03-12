@@ -9,7 +9,7 @@ using SkiaSharp;
 
 namespace Aco228.ContextualImage.Services;
 
-public class FlowPrimaryAndSecondaryService : ContextualFlow, ITransient
+public class ContextualImageFlowPrimaryAndSecondaryService : ContextualFlow, ITransient
 {
     private static ManagedList<ManagedList<SKColor>?> Colors = new()
     {

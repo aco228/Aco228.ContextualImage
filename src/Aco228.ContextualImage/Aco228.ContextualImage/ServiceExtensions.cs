@@ -12,7 +12,7 @@ public static class ServiceExtensions
     public static void RegisterContextualImageServices(this IServiceCollection services)
         => typeof(ServiceExtensions).RegisterIfNot(() =>
         {
-            services.AddTransient<FlowPrimaryAndSecondaryService>();
+            services.AddTransient<ContextualImageFlowPrimaryAndSecondaryService>();
             services.AddTransient<FlowPrimaryTextBlurService>();
             services.AddTransient<FlowPrimaryTextService>();
             services.RegisterPostBuildAction((p) =>
