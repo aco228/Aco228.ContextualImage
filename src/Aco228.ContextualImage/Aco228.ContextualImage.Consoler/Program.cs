@@ -37,8 +37,8 @@ int index = 1;
 var services = new OrderedList<ContextualFlow>()
 {
     // new FlowPrimaryAndSecondaryService(),
-    // new FlowPrimaryTextService(),
-    new FlowPrimaryTextBlurService(),
+    new ContextualImageFlowPrimaryService(),
+    // new FlowPrimaryTextBlurService(),
 };
 
 for (;;)

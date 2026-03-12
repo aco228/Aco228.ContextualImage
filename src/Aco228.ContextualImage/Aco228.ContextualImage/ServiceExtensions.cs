@@ -13,6 +13,7 @@ public static class ServiceExtensions
         => typeof(ServiceExtensions).RegisterIfNot(() =>
         {
             services.AddTransient<ContextualImageFlowPrimaryAndSecondaryService>();
+            services.AddTransient<ContextualImageFlowPrimaryService>();
             services.AddTransient<FlowPrimaryTextBlurService>();
             services.AddTransient<FlowPrimaryTextService>();
             services.RegisterPostBuildAction((p) =>
